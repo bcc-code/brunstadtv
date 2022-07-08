@@ -1,6 +1,6 @@
 package common
 
-// User represents an acutal user in the system
+// User represents an actual user in the system
 type User struct {
 	Roles     []string
 	Email     string
