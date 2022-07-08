@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/bcc-code/mediabank-bridge/log"
 	"github.com/golang-migrate/migrate/v4"
+	"github.com/rs/zerolog"
 	"time"
 
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
@@ -15,14 +16,15 @@ import (
 )
 
 func SetupDB(ctx *DockerContext) (*sql.DB, string) {
+	log.ConfigureGlobalLogger(zerolog.DebugLevel)
 	// pulls an image, creates a container based on it and runs it
 	resource, err := ctx.pool.RunWithOptions(&dockertest.RunOptions{
 		Repository: "postgres",
-		Tag:        "11",
+		Tag:        "14",
 		Env: []string{
 			"POSTGRES_PASSWORD=secret",
-			"POSTGRES_USER=postgres",
-			"POSTGRES_DB=dbname",
+			"POSTGRES_USER=btv",
+			"POSTGRES_DB=public",
 			"listen_addresses = '*'",
 		},
 		Networks: []*dockertest.Network{ctx.network},
@@ -36,9 +38,9 @@ func SetupDB(ctx *DockerContext) (*sql.DB, string) {
 	}
 
 	hostAndPort := resource.GetHostPort("5432/tcp")
-	databaseUrl := fmt.Sprintf("postgres://postgres:secret@%s/dbname?sslmode=disable", hostAndPort)
+	databaseUrl := fmt.Sprintf("postgres://btv:secret@%s/public?sslmode=disable", hostAndPort)
 	dockerIp := resource.GetIPInNetwork(ctx.network)
-	dockerUrl := fmt.Sprintf("host=%s user=postgres dbname=dbname password=secret sslmode=disable", dockerIp)
+	dockerUrl := fmt.Sprintf("host=%s user=btv dbname=public password=secret sslmode=disable", dockerIp)
 
 	//log.L.Debug().Msgf("Connecting to database on url: %s", databaseUrl)
 
@@ -61,7 +63,7 @@ func SetupDB(ctx *DockerContext) (*sql.DB, string) {
 	}
 
 	m, err := migrate.New(
-		"file://../migrations",
+		"file://../../migrations",
 		databaseUrl)
 	if err != nil {
 		log.L.Fatal().Err(err).Msg("Failed")

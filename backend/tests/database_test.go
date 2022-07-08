@@ -12,7 +12,10 @@ func TestDockerDatabase(t *testing.T) {
 	dockerContext := SetupDocker()
 	db, _ := SetupDB(dockerContext)
 
+	//dbx := sqlx.NewDb(db, "postgres")
+
 	q := sqlc.New(db)
-	episodes, _ := q.GetEpisodes(ctx)
+	episodes, err := q.GetEpisodes(ctx)
+	assert.Nil(t, err)
 	assert.NotEmpty(t, episodes)
 }
