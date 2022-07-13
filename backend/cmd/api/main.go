@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"database/sql"
+	"github.com/bcc-code/brunstadtv/backend/season"
+	"github.com/bcc-code/brunstadtv/backend/show"
 
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/playground"
@@ -24,11 +26,12 @@ import (
 )
 
 // Defining the Graphql handler
-func graphqlHandler(queries *sqlc.Queries, loaders *graph.BatchLoaders) gin.HandlerFunc {
+func graphqlHandler(queries *sqlc.Queries, loaders *graph.BatchLoaders, searchService *search.Service) gin.HandlerFunc {
 
 	resolver := graph.Resolver{
-		Queries: queries,
-		Loaders: loaders,
+		Queries:       queries,
+		Loaders:       loaders,
+		SearchService: searchService,
 	}
 
 	// NewExecutableSchema and Config are in the generated.go file
@@ -79,13 +82,14 @@ func main() {
 
 	queries := sqlc.New(db)
 
-	episodeLoader := episode.NewBatchLoader(*queries)
-	filesLoader := asset.NewBatchFileLoader(*queries)
-	streamsLoader := asset.NewBatchStreamLoader(*queries)
 	loaders := &graph.BatchLoaders{
-		EpisodeLoader: episodeLoader,
-		FilesLoader:   filesLoader,
-		StreamsLoader: streamsLoader,
+		ShowLoader:     show.NewBatchLoader(*queries),
+		SeasonLoader:   season.NewBatchLoader(*queries),
+		EpisodeLoader:  episode.NewBatchLoader(*queries),
+		SeasonsLoader:  season.NewListBatchLoader(*queries),
+		EpisodesLoader: episode.NewListBatchLoader(*queries),
+		FilesLoader:    asset.NewBatchFileLoader(*queries),
+		StreamsLoader:  asset.NewBatchStreamLoader(*queries),
 	}
 
 	log.L.Debug().Msg("Set up HTTP server")
@@ -95,22 +99,12 @@ func main() {
 	r.Use(auth0.JWT(ctx, config.JWTConfig))
 	r.Use(user.NewUserMiddleware(queries))
 
-	r.POST("/query", graphqlHandler(queries, loaders))
+	searchService := search.New(db, config.Algolia.AppId, config.Algolia.ApiKey, config.Algolia.SearchOnlyApiKey)
+	r.POST("/query", graphqlHandler(queries, loaders, searchService))
 
 	r.GET("/", playgroundHandler())
 
 	log.L.Debug().Msgf("connect to http://localhost:%s/ for GraphQL playground", config.Port)
-
-	if config.Algolia.AppId != "" {
-		searchService := search.New(db, config.Algolia.AppId, config.Algolia.ApiKey, config.Algolia.SearchOnlyApiKey)
-
-		searchGroup := r.Group("search")
-		searchGroup.POST("query", searchQueryHandler(searchService))
-
-		//if config.Algolia.SearchOnlyApiKey != "" {
-		//	searchGroup.GET("key", searchKeyHandler(searchService))
-		//}
-	}
 
 	span.End()
 

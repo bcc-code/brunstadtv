@@ -33,20 +33,6 @@ type EpisodePage implements Page{
   episode: Episode
 }
 
-type Show {
-  id: ID!
-  title: String!
-  episodeCount: Int!
-  seasonCount: Int!
-  seasons: [Season!]!
-}
-
-type Season {
-  id: ID!
-  show: Show!
-  episodes: [Episode!]!
-}
-
 type PaginationInfo{
   id: ID!
   endCursor: Cursor!
@@ -135,6 +121,24 @@ type PageItem implements Item {
   imageUrl: String!
   pageId: ID!
   page: Page!
+}
+
+type Show {
+  id: ID!
+  title: String!
+  description: String!
+  episodeCount: Int!
+  seasonCount: Int!
+  seasons: [Season!]! @goField(forceResolver: true)
+}
+
+type Season {
+  id: ID!
+  title: String!
+  description: String!
+  number: Int!
+  show: Show! @goField(forceResolver: true)
+  episodes: [Episode!]! @goField(forceResolver: true)
 }
 
 type Episode {
@@ -244,6 +248,14 @@ type User {
   roles: [String!]!
 }
 
+union SearchResultItem = Episode | Season | Show
+
+type SearchResult {
+  hits: Int!
+  page: Int!
+  result: [SearchResultItem!]!
+}
+
 type QueryRoot{
   page(
     id: ID!
@@ -253,9 +265,23 @@ type QueryRoot{
     id: ID!
   ): Episode
 
+  season(
+    id: ID!
+  ): Season
+
+  show(
+    id: ID!
+  ): Show
+
   section(
     id: ID!
   ): Section
+
+  search(
+    queryString: String!
+    first: Int
+    offset: Int
+  ): SearchResult!
 
   calendar: Calendar
   event(id: ID!): Event
